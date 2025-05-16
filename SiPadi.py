@@ -4,7 +4,19 @@ from datetime import datetime
 import os
 import plotly.express as px
 
-# ---------- Helper Functions ----------
+# ---------- Inisialisasi File Kosong ----------
+def init_files():
+    files_and_headers = {
+        "pemasukan.csv": ["Tanggal", "Sumber", "Jumlah", "Metode"],
+        "pengeluaran.csv": ["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode"],
+        "jurnal.csv": ["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"]
+    }
+    for file, headers in files_and_headers.items():
+        if not os.path.exists(file):
+            df = pd.DataFrame(columns=headers)
+            df.to_csv(file, index=False)
+
+# ---------- Helper ----------
 def load_data(file):
     return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame()
 
@@ -40,7 +52,7 @@ def login():
         return False
     return True
 
-# ---------- Dropdown Sub Kategori ----------
+# ---------- Kategori ----------
 kategori_pengeluaran = {
     "Bibit": ["Intani", "Inpari", "Ciherang"],
     "Pupuk": ["Urea", "NPK", "Organik"],
@@ -125,39 +137,44 @@ def pengeluaran():
 # ---------- Laporan ----------
 def laporan():
     jurnal_df = load_data("jurnal.csv")
-    st.write("Kolom-kolom CSV:", jurnal_df.columns.tolist())
-
-    mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
-    akhir = st.date_input("Tanggal Akhir", datetime.now())
     pemasukan_df = load_data("pemasukan.csv")
     pengeluaran_df = load_data("pengeluaran.csv")
 
+    mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
+    akhir = st.date_input("Tanggal Akhir", datetime.now())
+
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
-        if not df.empty:
+        if not df.empty and 'Tanggal' in df.columns:
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce')
 
     jurnal_df = jurnal_df[
         (jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) &
         (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))
-    ]
+    ] if not jurnal_df.empty else pd.DataFrame()
 
     tabs = st.tabs(["Ringkasan", "Jurnal Umum", "Buku Besar", "Laba Rugi", "Neraca"])
 
     with tabs[0]:
-        total_pemasukan = pemasukan_df[
-            (pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) &
-            (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))
-        ]['Jumlah'].sum()
+        if not pemasukan_df.empty and 'Tanggal' in pemasukan_df.columns:
+            total_pemasukan = pemasukan_df[
+                (pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) &
+                (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))
+            ]['Jumlah'].sum()
+        else:
+            total_pemasukan = 0
 
-        total_pengeluaran = pengeluaran_df[
-            (pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) &
-            (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))
-        ]['Jumlah'].sum()
+        if not pengeluaran_df.empty and 'Tanggal' in pengeluaran_df.columns:
+            total_pengeluaran = pengeluaran_df[
+                (pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) &
+                (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))
+            ]['Jumlah'].sum()
+        else:
+            total_pengeluaran = 0
 
         st.metric("Total Pemasukan", f"Rp {total_pemasukan:,.0f}")
         st.metric("Total Pengeluaran", f"Rp {total_pengeluaran:,.0f}")
 
-        if not pemasukan_df.empty or not pengeluaran_df.empty:
+        if total_pemasukan > 0 or total_pengeluaran > 0:
             df_sum = pd.DataFrame({
                 'Kategori': ['Pemasukan', 'Pengeluaran'],
                 'Jumlah': [total_pemasukan, total_pengeluaran]
@@ -203,10 +220,10 @@ def laporan():
         st.write(f"*Kewajiban*: Rp {kewajiban:,.0f}")
         st.write(f"*Ekuitas*: Rp {ekuitas:,.0f}")
 
-
 # ---------- Main ----------
 def main():
     st.set_page_config(page_title="🌾 SiPadi", layout="centered")
+    init_files()  # <- perbaikan penting untuk hosting
     st.markdown("<h1 style='color:#BAC095;'>🌱 SiPadi</h1>", unsafe_allow_html=True)
 
     if login():
