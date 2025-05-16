@@ -124,28 +124,39 @@ def pengeluaran():
 
 # ---------- Laporan ----------
 def laporan():
-   jurnal_df = load_data("jurnal.csv")
-st.write("Kolom-kolom CSV:", jurnal_df.columns.tolist())
+    jurnal_df = load_data("jurnal.csv")
+    st.write("Kolom-kolom CSV:", jurnal_df.columns.tolist())
 
-mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
-akhir = st.date_input("Tanggal Akhir", datetime.now())
-pemasukan_df = load_data("pemasukan.csv")
-pengeluaran_df = load_data("pengeluaran.csv")
-
+    mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
+    akhir = st.date_input("Tanggal Akhir", datetime.now())
+    pemasukan_df = load_data("pemasukan.csv")
+    pengeluaran_df = load_data("pengeluaran.csv")
 
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
         if not df.empty:
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce')
 
-    jurnal_df = jurnal_df[(jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) & (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))]
+    jurnal_df = jurnal_df[
+        (jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) &
+        (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))
+    ]
 
     tabs = st.tabs(["Ringkasan", "Jurnal Umum", "Buku Besar", "Laba Rugi", "Neraca"])
 
     with tabs[0]:
-        total_pemasukan = pemasukan_df[(pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) & (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum()
-        total_pengeluaran = pengeluaran_df[(pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) & (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum()
+        total_pemasukan = pemasukan_df[
+            (pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) &
+            (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))
+        ]['Jumlah'].sum()
+
+        total_pengeluaran = pengeluaran_df[
+            (pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) &
+            (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))
+        ]['Jumlah'].sum()
+
         st.metric("Total Pemasukan", f"Rp {total_pemasukan:,.0f}")
         st.metric("Total Pengeluaran", f"Rp {total_pengeluaran:,.0f}")
+
         if not pemasukan_df.empty or not pengeluaran_df.empty:
             df_sum = pd.DataFrame({
                 'Kategori': ['Pemasukan', 'Pengeluaran'],
@@ -171,18 +182,27 @@ pengeluaran_df = load_data("pengeluaran.csv")
 
     with tabs[3]:
         pendapatan = jurnal_df[jurnal_df['Akun'].str.contains("Pendapatan")]['Kredit'].sum()
-        beban = jurnal_df[~jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang', 'Utang Dagang', 'Pendapatan'])]['Debit'].sum()
+        beban = jurnal_df[
+            ~jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang', 'Utang Dagang', 'Pendapatan'])
+        ]['Debit'].sum()
+
         st.metric("Pendapatan", f"Rp {pendapatan:,.0f}")
         st.metric("Beban", f"Rp {beban:,.0f}")
         st.metric("Laba/Rugi", f"Rp {pendapatan - beban:,.0f}")
 
     with tabs[4]:
-        aset = jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Debit'].sum() - jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Kredit'].sum()
-        kewajiban = jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Kredit'].sum() - jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Debit'].sum()
+        aset = jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Debit'].sum() \
+            - jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Kredit'].sum()
+
+        kewajiban = jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Kredit'].sum() \
+            - jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Debit'].sum()
+
         ekuitas = jurnal_df['Kredit'].sum() - jurnal_df['Debit'].sum()
+
         st.write(f"*Aset*: Rp {aset:,.0f}")
         st.write(f"*Kewajiban*: Rp {kewajiban:,.0f}")
         st.write(f"*Ekuitas*: Rp {ekuitas:,.0f}")
+
 
 # ---------- Main ----------
 def main():
