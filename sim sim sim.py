@@ -24,21 +24,49 @@ def buat_jurnal(tanggal, akun_debit, akun_kredit, jumlah, keterangan):
 
 # ---------- Login ----------
 def login():
-    st.markdown("<h2 style='color:#BAC095;'>🔐 Login Petani</h2>", unsafe_allow_html=True)
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
 
-    if not st.session_state['logged_in']:
-        username = st.text_input("Nama Pengguna")
-        password = st.text_input("Kata Sandi", type="password")
+    if st.session_state['logged_in']:
+        return True
+
+    st.title("🔐 Login / Daftar Akun")
+
+    akun_file = "akun.csv"
+    akun_df = load_data(akun_file)
+
+    mode = st.selectbox("Pilih Aksi", ["Login", "Daftar"])
+
+    username = st.text_input("Nama Pengguna")
+    password = st.text_input("Kata Sandi", type="password")
+
+    if mode == "Login":
         if st.button("Masuk"):
-            if username == "petani" and password == "sawah123":
+            if username.strip() == "" or password.strip() == "":
+                st.error("Harap isi semua kolom.")
+                return False
+            if not akun_df.empty and ((akun_df['Username'] == username) & (akun_df['Password'] == password)).any():
                 st.session_state['logged_in'] = True
                 st.success("Login berhasil!")
+                return True
             else:
                 st.error("Username atau password salah.")
-        return False
-    return True
+                return False
+
+    elif mode == "Daftar":
+        if st.button("Daftar"):
+            if username.strip() == "" or password.strip() == "":
+                st.error("Harap isi semua kolom.")
+                return False
+            if not akun_df.empty and (akun_df['Username'] == username).any():
+                st.error("Username sudah digunakan.")
+                return False
+            new_user = {"Username": username, "Password": password}
+            append_data(new_user, akun_file)
+            st.success("Akun berhasil dibuat. Silakan login.")
+            return False
+
+    return False
 
 # ---------- Dropdown Sub Kategori ----------
 kategori_pengeluaran = {
@@ -124,14 +152,12 @@ def pengeluaran():
 
 # ---------- Laporan ----------
 def laporan():
-   jurnal_df = load_data("jurnal.csv")
-st.write("Kolom-kolom CSV:", jurnal_df.columns.tolist())
-
-mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
-akhir = st.date_input("Tanggal Akhir", datetime.now())
-pemasukan_df = load_data("pemasukan.csv")
-pengeluaran_df = load_data("pengeluaran.csv")
-
+    st.header("Laporan Keuangan")
+    mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
+    akhir = st.date_input("Tanggal Akhir", datetime.now())
+    pemasukan_df = load_data("pemasukan.csv")
+    pengeluaran_df = load_data("pengeluaran.csv")
+    jurnal_df = load_data("jurnal.csv")
 
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
         if not df.empty:
