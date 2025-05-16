@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 import plotly.express as px
 
-# ---------- Helper Functions ----------
+# -------- Helper Functions --------
 def load_data(file):
     return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame()
 
@@ -22,7 +22,7 @@ def buat_jurnal(tanggal, akun_debit, akun_kredit, jumlah, keterangan, username):
         {"Tanggal": tanggal, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan, "Username": username},
     ]
 
-# ---------- Login ----------
+# -------- Login --------
 def login():
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
@@ -48,7 +48,7 @@ def login():
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = username
                 st.success(f"Selamat datang, {username}!")
-                st.experimental_rerun()  # <=== penting agar login langsung refresh
+                st.experimental_rerun()  # segarkan halaman setelah login
                 return True
             else:
                 st.error("Username atau password salah.")
@@ -69,7 +69,7 @@ def login():
 
     return False
 
-# ---------- Kategori ----------
+# -------- Kategori --------
 kategori_pengeluaran = {
     "Bibit": ["Intani", "Inpari", "Ciherang"],
     "Pupuk": ["Urea", "NPK", "Organik"],
@@ -82,7 +82,7 @@ kategori_pemasukan = {
     "Sumber Pemasukan": ["Penjualan Padi", "Lain-lain"]
 }
 
-# ---------- Pemasukan ----------
+# -------- Pemasukan --------
 def pemasukan():
     st.subheader("Tambah Pemasukan")
     tanggal = st.date_input("Tanggal", datetime.now())
@@ -119,7 +119,7 @@ def pemasukan():
 
         st.success("✅ Pemasukan berhasil disimpan.")
 
-# ---------- Pengeluaran ----------
+# -------- Pengeluaran --------
 def pengeluaran():
     st.subheader("Tambah Pengeluaran")
     tanggal = st.date_input("Tanggal", datetime.now())
@@ -159,7 +159,7 @@ def pengeluaran():
 
         st.success("✅ Pengeluaran berhasil disimpan.")
 
-# ---------- Laporan ----------
+# -------- Laporan --------
 def laporan():
     st.header("Laporan Keuangan")
     username = st.session_state['username']
@@ -249,7 +249,7 @@ def laporan():
         st.write(f"**Kewajiban**: Rp {kewajiban:,.0f}")
         st.write(f"**Ekuitas**: Rp {ekuitas:,.0f}")
 
-# ---------- Main ----------
+# -------- Main --------
 def main():
     st.set_page_config(page_title="🌾 SiPadi", layout="centered")
     st.markdown("<h1 style='color:#BAC095;'>🌱 SiPadi</h1>", unsafe_allow_html=True)
@@ -269,4 +269,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
