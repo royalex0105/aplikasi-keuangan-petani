@@ -211,9 +211,9 @@ def laporan():
     mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
     akhir = st.date_input("Tanggal Akhir", datetime.now())
 
-    pemasukan_df = load_data("pemasukan.csv", username)
+    pemasukan_df = load_data("pemasukan.csv", "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/pemasukan.csv")
     pengeluaran_df = load_data("pengeluaran.csv", username)
-    jurnal_df = load_data("jurnal.csv", username)
+    jurnal_df = load_data("jurnal.csv", "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/jurnal.csv")
 
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
         if not df.empty and "Tanggal" in df.columns:
