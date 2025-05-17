@@ -5,20 +5,31 @@ import os
 import plotly.express as px
 
 # ---------- Inisialisasi File Kosong ----------
+import os
+import pandas as pd
+
 def init_files():
-    files_and_headers = {
-        "pemasukan.csv": ["Tanggal", "Sumber", "Jumlah", "Metode"],
-        "pengeluaran.csv": ["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode"],
-        "jurnal.csv": ["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"]
+    files = {
+        "jurnal.csv": ["Tanggal", "Keterangan", "Akun", "Debit", "Kredit"],
+        "pemasukan.csv": ["Tanggal", "Sumber", "Jumlah"],
+        "pengeluaran.csv": ["Tanggal", "Kategori", "Jumlah"]
     }
-    for file, headers in files_and_headers.items():
+    for file, columns in files.items():
         if not os.path.exists(file):
-            df = pd.DataFrame(columns=headers)
-            df.to_csv(file, index=False)
+            pd.DataFrame(columns=columns).to_csv(file, index=False)
+
 
 # ---------- Helper ----------
 def load_data(file):
-    return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame()
+    if os.path.exists(file):
+        try:
+            return pd.read_csv(file)
+        except Exception as e:
+            st.error(f"Gagal membaca {file}: {e}")
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame()
+
 
 def save_data(df, file):
     df.to_csv(file, index=False)
@@ -215,7 +226,7 @@ def laporan():
 # ---------- Main ----------
 def main():
     st.set_page_config(page_title="🌾 SiPadi", layout="centered")
-    init_files()
+    init_files()  # <- WAJIB!
     st.markdown("<h1 style='color:#BAC095;'>🌱 SiPadi</h1>", unsafe_allow_html=True)
     if login():
         menu = st.sidebar.radio("Menu Utama", ["Pemasukan", "Pengeluaran", "Laporan"])
