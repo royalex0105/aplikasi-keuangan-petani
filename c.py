@@ -18,9 +18,22 @@ def get_user_file(base_filename, username):
 def load_data(base_filename, username):
     filename = get_user_file(base_filename, username)
     if os.path.exists(filename):
-        return pd.read_csv(filename)
+        try:
+            return pd.read_csv(filename)
+        except pd.errors.EmptyDataError:
+            # Jika file kosong, buat DataFrame kosong dengan kolom sesuai file yang dipakai
+            # Misal default kolom untuk masing-masing file:
+            if "pemasukan" in filename:
+                return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
+            elif "pengeluaran" in filename:
+                return pd.DataFrame(columns=["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode", "Username"])
+            elif "jurnal" in filename:
+                return pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"])
+            else:
+                return pd.DataFrame()
     else:
         return pd.DataFrame()
+
 
 def save_data(df, base_filename, username):
     filename = get_user_file(base_filename, username)
