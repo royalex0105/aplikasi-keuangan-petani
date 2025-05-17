@@ -383,7 +383,7 @@ def main():
     
     # Sidebar with logo
     with st.sidebar:
-        st.image("https://imgur.com/a/IAPBVIP", width=80)
+        st.image("images/logo.jpg", width=80)
         st.title("SiPadi")
         st.title("Petani Makmur")
         st.write("---")
