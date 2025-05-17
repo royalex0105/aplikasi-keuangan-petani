@@ -48,6 +48,7 @@ def login():
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = username
                 st.success(f"Selamat datang, {username}!")
+                st.experimental_rerun()  # <=== penting agar login langsung refresh
                 return True
             else:
                 st.error("Username atau password salah.")
@@ -175,24 +176,46 @@ def laporan():
     jurnal_df = jurnal_df[jurnal_df["Username"] == username] if "Username" in jurnal_df else pd.DataFrame()
 
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
-        if not df.empty:
+        if not df.empty and "Tanggal" in df.columns:
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce')
 
-    jurnal_df = jurnal_df[(jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) & (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))]
+    if "Tanggal" in jurnal_df.columns and not jurnal_df.empty:
+        jurnal_df = jurnal_df[
+            (jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) &
+            (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))
+        ]
+    else:
+        jurnal_df = pd.DataFrame()
+
+    if "Tanggal" in pemasukan_df.columns and not pemasukan_df.empty:
+        pemasukan_df = pemasukan_df[
+            (pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) &
+            (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))
+        ]
+    else:
+        pemasukan_df = pd.DataFrame()
+
+    if "Tanggal" in pengeluaran_df.columns and not pengeluaran_df.empty:
+        pengeluaran_df = pengeluaran_df[
+            (pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) &
+            (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))
+        ]
+    else:
+        pengeluaran_df = pd.DataFrame()
 
     tabs = st.tabs(["Ringkasan", "Jurnal Umum", "Buku Besar", "Laba Rugi", "Neraca"])
 
     with tabs[0]:
-        total_pemasukan = pemasukan_df[(pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) & (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum()
-        total_pengeluaran = pengeluaran_df[(pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) & (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum()
+        total_pemasukan = pemasukan_df["Jumlah"].sum() if "Jumlah" in pemasukan_df else 0
+        total_pengeluaran = pengeluaran_df["Jumlah"].sum() if "Jumlah" in pengeluaran_df else 0
         st.metric("Total Pemasukan", f"Rp {total_pemasukan:,.0f}")
         st.metric("Total Pengeluaran", f"Rp {total_pengeluaran:,.0f}")
-        if not pemasukan_df.empty or not pengeluaran_df.empty:
-            df_sum = pd.DataFrame({
-                'Kategori': ['Pemasukan', 'Pengeluaran'],
-                'Jumlah': [total_pemasukan, total_pengeluaran]
+        if total_pemasukan > 0 or total_pengeluaran > 0:
+            ringkasan_df = pd.DataFrame({
+                "Kategori": ["Pemasukan", "Pengeluaran"],
+                "Jumlah": [total_pemasukan, total_pengeluaran]
             })
-            fig = px.pie(df_sum, values='Jumlah', names='Kategori')
+            fig = px.pie(ringkasan_df, values="Jumlah", names="Kategori")
             st.plotly_chart(fig)
 
     with tabs[1]:
@@ -201,29 +224,30 @@ def laporan():
 
     with tabs[2]:
         if not jurnal_df.empty:
-            akun_list = jurnal_df['Akun'].unique()
-            for akun in akun_list:
+            for akun in jurnal_df["Akun"].unique():
+                df_akun = jurnal_df[jurnal_df["Akun"] == akun].copy()
+                df_akun = df_akun.sort_values("Tanggal")
+                df_akun["Saldo"] = (df_akun["Debit"] - df_akun["Kredit"]).cumsum()
                 st.subheader(f"Akun: {akun}")
-                df = jurnal_df[jurnal_df['Akun'] == akun].copy()
-                df = df.sort_values("Tanggal")
-                df['Saldo'] = df['Debit'] - df['Kredit']
-                df['Saldo'] = df['Saldo'].cumsum()
-                st.dataframe(df)
+                st.dataframe(df_akun)
 
     with tabs[3]:
-        pendapatan = jurnal_df[jurnal_df['Akun'].str.contains("Pendapatan")]['Kredit'].sum()
-        beban = jurnal_df[~jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang', 'Utang Dagang', 'Pendapatan'])]['Debit'].sum()
+        pendapatan = jurnal_df[jurnal_df["Akun"].str.contains("Pendapatan")]["Kredit"].sum() if not jurnal_df.empty else 0
+        beban = jurnal_df[~jurnal_df["Akun"].isin(["Kas", "Bank", "Piutang Dagang", "Utang Dagang", "Pendapatan"])]["Debit"].sum() if not jurnal_df.empty else 0
         st.metric("Pendapatan", f"Rp {pendapatan:,.0f}")
         st.metric("Beban", f"Rp {beban:,.0f}")
         st.metric("Laba/Rugi", f"Rp {pendapatan - beban:,.0f}")
 
     with tabs[4]:
-        aset = jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Debit'].sum() - jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Kredit'].sum()
-        kewajiban = jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Kredit'].sum() - jurnal_df[jurnal_df['Akun'] == 'Utang Dagang']['Debit'].sum()
-        ekuitas = jurnal_df['Kredit'].sum() - jurnal_df['Debit'].sum()
-        st.write(f"*Aset*: Rp {aset:,.0f}")
-        st.write(f"*Kewajiban*: Rp {kewajiban:,.0f}")
-        st.write(f"*Ekuitas*: Rp {ekuitas:,.0f}")
+        if jurnal_df.empty or "Akun" not in jurnal_df.columns:
+            st.warning("Data jurnal tidak tersedia.")
+            return
+        aset = jurnal_df[jurnal_df["Akun"].isin(["Kas", "Bank", "Piutang Dagang"])]["Debit"].sum() - jurnal_df[jurnal_df["Akun"].isin(["Kas", "Bank", "Piutang Dagang"])]["Kredit"].sum()
+        kewajiban = jurnal_df[jurnal_df["Akun"] == "Utang Dagang"]["Kredit"].sum() - jurnal_df[jurnal_df["Akun"] == "Utang Dagang"]["Debit"].sum()
+        ekuitas = jurnal_df["Kredit"].sum() - jurnal_df["Debit"].sum()
+        st.write(f"**Aset**: Rp {aset:,.0f}")
+        st.write(f"**Kewajiban**: Rp {kewajiban:,.0f}")
+        st.write(f"**Ekuitas**: Rp {ekuitas:,.0f}")
 
 # ---------- Main ----------
 def main():
@@ -232,6 +256,10 @@ def main():
 
     if login():
         menu = st.sidebar.radio("Menu Utama", ["Pemasukan", "Pengeluaran", "Laporan"])
+        if st.sidebar.button("🚪 Logout"):
+            st.session_state.clear()
+            st.experimental_rerun()
+
         if menu == "Pemasukan":
             pemasukan()
         elif menu == "Pengeluaran":
