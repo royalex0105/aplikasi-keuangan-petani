@@ -22,7 +22,6 @@ def load_data(base_filename, username):
             return pd.read_csv(filename)
         except pd.errors.EmptyDataError:
             # Jika file kosong, buat DataFrame kosong dengan kolom sesuai file yang dipakai
-            # Misal default kolom untuk masing-masing file:
             if "pemasukan" in filename:
                 return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
             elif "pengeluaran" in filename:
@@ -32,8 +31,15 @@ def load_data(base_filename, username):
             else:
                 return pd.DataFrame()
     else:
-        return pd.DataFrame()
-
+        # Jika file belum ada, buat DataFrame kosong dengan kolom sesuai file
+        if "pemasukan" in base_filename:
+            return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
+        elif "pengeluaran" in base_filename:
+            return pd.DataFrame(columns=["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode", "Username"])
+        elif "jurnal" in base_filename:
+            return pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"])
+        else:
+            return pd.DataFrame()
 
 def save_data(df, base_filename, username):
     filename = get_user_file(base_filename, username)
@@ -140,7 +146,7 @@ def pemasukan():
         if not sumber.strip() or jumlah <= 0:
             st.error("Isi data dengan benar.")
             return
-        waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        waktu = tanggal.strftime("%Y-%m-%d %H:%M:%S")
         username = st.session_state['username']
         data = {
             "Tanggal": waktu,
@@ -178,7 +184,7 @@ def pengeluaran():
         if jumlah <= 0:
             st.error("Jumlah tidak boleh 0.")
             return
-        waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        waktu = tanggal.strftime("%Y-%m-%d %H:%M:%S")
         username = st.session_state['username']
         data = {
             "Tanggal": waktu,
@@ -211,9 +217,10 @@ def laporan():
     mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
     akhir = st.date_input("Tanggal Akhir", datetime.now())
 
-   df_jurnal = load_data("jurnal.csv", "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/jurnal.csv")
-   df_pemasukan = load_data("pemasukan.csv", "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/pemasukan.csv")
-   df_pengeluaran = load_data("pengeluaran.csv", "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/pengeluaran.csv")
+    pemasukan_df = load_data("pemasukan.csv", username)
+    pengeluaran_df = load_data("pengeluaran.csv", username)
+    jurnal_df = load_data("jurnal.csv", username)
+
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
         if not df.empty and "Tanggal" in df.columns:
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce')
@@ -273,20 +280,34 @@ def laporan():
 def main():
     st.set_page_config(page_title="Aplikasi Keuangan Petani", page_icon="🌾", layout="wide")
 
-    # Logo kecil di header
-    st.image("aset/logo.jpg", width=80)
+    # Logo kecil di header (ganti dengan URL/logo sendiri jika ada)
+    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3105/3105804.png", width=80)
+    st.sidebar.title("Menu")
+    
+    logged_in = login_register()
+    if not logged_in:
+        return
+    
+    menu = st.sidebar.radio("Pilih Menu", ["Beranda", "Pemasukan", "Pengeluaran", "Laporan", "Logout"])
 
-    if not login_register():
-        st.stop()
+    if menu == "Beranda":
+        st.title(f"Selamat datang, {st.session_state['username']}!")
+        st.markdown("Ini adalah aplikasi keuangan untuk petani dengan fitur lengkap.")
+        st.markdown("- Tambah pemasukan dan pengeluaran")
+        st.markdown("- Jurnal umum otomatis")
+        st.markdown("- Buku besar")
+        st.markdown("- Laporan laba rugi dan neraca")
+        st.markdown("Gunakan menu di sebelah kiri untuk navigasi.")
 
-    menu = st.sidebar.selectbox("Menu", ["Pemasukan", "Pengeluaran", "Laporan", "Logout"])
-
-    if menu == "Pemasukan":
+    elif menu == "Pemasukan":
         pemasukan()
+
     elif menu == "Pengeluaran":
         pengeluaran()
+
     elif menu == "Laporan":
         laporan()
+
     elif menu == "Logout":
         st.session_state['logged_in'] = False
         st.session_state['username'] = ""
@@ -294,3 +315,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
