@@ -5,13 +5,12 @@ import hashlib
 import pandas as pd
 import plotly.express as px
 
-# ---------------- Helper Functions ----------------
+# ----------- Helper Functions ------------
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def get_user_file(base_filename, username):
-    # contoh: pemasukan_user1.csv
     name, ext = os.path.splitext(base_filename)
     return f"{name}_{username}{ext}"
 
@@ -19,27 +18,24 @@ def load_data(base_filename, username):
     filename = get_user_file(base_filename, username)
     if os.path.exists(filename):
         try:
-            return pd.read_csv(filename)
+            df = pd.read_csv(filename)
+            return df
         except pd.errors.EmptyDataError:
-            # Jika file kosong, buat DataFrame kosong dengan kolom sesuai file yang dipakai
-            if "pemasukan" in filename:
-                return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
-            elif "pengeluaran" in filename:
-                return pd.DataFrame(columns=["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode", "Username"])
-            elif "jurnal" in filename:
-                return pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"])
-            else:
-                return pd.DataFrame()
+            return empty_df_by_file(base_filename)
     else:
-        # Jika file belum ada, buat DataFrame kosong dengan kolom sesuai file
-        if "pemasukan" in base_filename:
-            return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
-        elif "pengeluaran" in base_filename:
-            return pd.DataFrame(columns=["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode", "Username"])
-        elif "jurnal" in base_filename:
-            return pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan"])
-        else:
-            return pd.DataFrame()
+        return empty_df_by_file(base_filename)
+
+def empty_df_by_file(base_filename):
+    if "pemasukan" in base_filename:
+        return pd.DataFrame(columns=["Tanggal", "Sumber", "Jumlah", "Metode", "Keterangan", "Username"])
+    elif "pengeluaran" in base_filename:
+        return pd.DataFrame(columns=["Tanggal", "Kategori", "Sub Kategori", "Jumlah", "Keterangan", "Metode", "Username"])
+    elif "jurnal" in base_filename:
+        return pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan", "Username"])
+    elif "akun" in base_filename:
+        return pd.DataFrame(columns=["Username", "Password"])
+    else:
+        return pd.DataFrame()
 
 def save_data(df, base_filename, username):
     filename = get_user_file(base_filename, username)
@@ -50,10 +46,10 @@ def append_data(data, base_filename, username):
     df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
     save_data(df, base_filename, username)
 
-def buat_jurnal(tanggal, akun_debit, akun_kredit, jumlah, keterangan):
+def buat_jurnal(tanggal, akun_debit, akun_kredit, jumlah, keterangan, username):
     return [
-        {"Tanggal": tanggal, "Akun": akun_debit, "Debit": jumlah, "Kredit": 0, "Keterangan": keterangan},
-        {"Tanggal": tanggal, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan},
+        {"Tanggal": tanggal, "Akun": akun_debit, "Debit": jumlah, "Kredit": 0, "Keterangan": keterangan, "Username": username},
+        {"Tanggal": tanggal, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan, "Username": username},
     ]
 
 def load_user_accounts():
@@ -78,7 +74,29 @@ def validate_login(username, password):
     hashed_pw = hash_password(password)
     return ((akun_df['Username'] == username) & (akun_df['Password'] == hashed_pw)).any()
 
-# ---------------- Login & Register ----------------
+def load_csv_from_url(url):
+    try:
+        df = pd.read_csv(url)
+        return df
+    except Exception as e:
+        st.error(f"Gagal load data dari {url}: {e}")
+        return pd.DataFrame()
+
+# ----------- Data Kategori -------------
+
+kategori_pengeluaran = {
+    "Bibit": ["Intani", "Inpari", "Ciherang"],
+    "Pupuk": ["Urea", "NPK", "Organik"],
+    "Pestisida": ["Furadan", "BPMC", "Dursban"],
+    "Alat Tani": ["Sabit", "Cangkul", "Karung"],
+    "Tenaga Kerja": ["Upah Harian", "Borongan"],
+    "Lainnya": ["Lain-lain"]
+}
+kategori_pemasukan = {
+    "Sumber Pemasukan": ["Penjualan Padi", "Lain-lain"]
+}
+
+# ----------- Fungsi Login / Register -------------
 
 def login_register():
     if 'logged_in' not in st.session_state:
@@ -118,35 +136,21 @@ def login_register():
 
     return False
 
-# ---------------- Data Kategori ----------------
-
-kategori_pengeluaran = {
-    "Bibit": ["Intani", "Inpari", "Ciherang"],
-    "Pupuk": ["Urea", "NPK", "Organik"],
-    "Pestisida": ["Furadan", "BPMC", "Dursban"],
-    "Alat Tani": ["Sabit", "Cangkul", "Karung"],
-    "Tenaga Kerja": ["Upah Harian", "Borongan"],
-    "Lainnya": ["Lain-lain"]
-}
-kategori_pemasukan = {
-    "Sumber Pemasukan": ["Penjualan Padi", "Lain-lain"]
-}
-
-# ---------------- Fungsi Pemasukan ----------------
+# ----------- Fungsi Pemasukan -------------
 
 def pemasukan():
     st.subheader("Tambah Pemasukan")
     tanggal = st.date_input("Tanggal", datetime.now())
     sumber = st.selectbox("Sumber Pemasukan", kategori_pemasukan["Sumber Pemasukan"])
     jumlah = st.number_input("Jumlah (Rp)", min_value=0)
-    deskripsi = st.text_area("Keterangan (opsional)") 
+    deskripsi = st.text_area("Keterangan (opsional)")
     metode = st.radio("Metode Penerimaan", ["Tunai", "Transfer", "Piutang", "Pelunasan Piutang"])
 
     if st.button("✅ Simpan Pemasukan"):
         if not sumber.strip() or jumlah <= 0:
             st.error("Isi data dengan benar.")
             return
-        waktu = tanggal.strftime("%Y-%m-%d %H:%M:%S")
+        waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         username = st.session_state['username']
         data = {
             "Tanggal": waktu,
@@ -157,6 +161,7 @@ def pemasukan():
             "Username": username
         }
         append_data(data, "pemasukan.csv", username)
+
         akun_debit = {
             "Tunai": "Kas",
             "Transfer": "Bank",
@@ -164,12 +169,13 @@ def pemasukan():
             "Pelunasan Piutang": "Kas"
         }[metode]
         akun_kredit = "Pendapatan" if metode != "Pelunasan Piutang" else "Piutang Dagang"
-        jurnal = buat_jurnal(waktu, akun_debit, akun_kredit, jumlah, sumber)
+        jurnal = buat_jurnal(waktu, akun_debit, akun_kredit, jumlah, sumber, username)
         for j in jurnal:
             append_data(j, "jurnal.csv", username)
+
         st.success("✅ Pemasukan berhasil disimpan.")
 
-# ---------------- Fungsi Pengeluaran ----------------
+# ----------- Fungsi Pengeluaran -------------
 
 def pengeluaran():
     st.subheader("Tambah Pengeluaran")
@@ -184,7 +190,7 @@ def pengeluaran():
         if jumlah <= 0:
             st.error("Jumlah tidak boleh 0.")
             return
-        waktu = tanggal.strftime("%Y-%m-%d %H:%M:%S")
+        waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         username = st.session_state['username']
         data = {
             "Tanggal": waktu,
@@ -196,6 +202,7 @@ def pengeluaran():
             "Username": username
         }
         append_data(data, "pengeluaran.csv", username)
+
         akun_kredit = {
             "Tunai": "Kas",
             "Transfer": "Bank",
@@ -203,12 +210,13 @@ def pengeluaran():
             "Pelunasan Utang": "Kas"
         }[metode]
         akun_debit = sub_kategori if metode != "Pelunasan Utang" else "Utang Dagang"
-        jurnal = buat_jurnal(waktu, akun_debit, akun_kredit, jumlah, deskripsi)
+        jurnal = buat_jurnal(waktu, akun_debit, akun_kredit, jumlah, deskripsi, username)
         for j in jurnal:
             append_data(j, "jurnal.csv", username)
+
         st.success("✅ Pengeluaran berhasil disimpan.")
 
-# ---------------- Fungsi Laporan ----------------
+# ----------- Fungsi Laporan -------------
 
 def laporan():
     st.header("Laporan Keuangan")
@@ -217,97 +225,85 @@ def laporan():
     mulai = st.date_input("Tanggal Mulai", datetime.now().replace(day=1))
     akhir = st.date_input("Tanggal Akhir", datetime.now())
 
+    # Coba load data lokal user, jika kosong, load contoh dari URL
+    jurnal_df = load_data("jurnal.csv", username)
     pemasukan_df = load_data("pemasukan.csv", username)
     pengeluaran_df = load_data("pengeluaran.csv", username)
-    jurnal_df = load_data("jurnal.csv", username)
 
-    for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
+    # Kalau kosong, coba load dari URL contoh data (opsional, bisa dihilangkan kalau hanya mau data lokal)
+    if jurnal_df.empty:
+        url_jurnal = "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/jurnal.csv"
+        jurnal_df = load_csv_from_url(url_jurnal)
+    if pemasukan_df.empty:
+        url_pemasukan = "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/pemasukan.csv"
+        pemasukan_df = load_csv_from_url(url_pemasukan)
+    if pengeluaran_df.empty:
+        url_pengeluaran = "https://raw.githubusercontent.com/royalex0105/aplikasi-keuangan-petani/main/pengeluaran.csv"
+        pengeluaran_df = load_csv_from_url(url_pengeluaran)
+
+    for df in [jurnal_df, pemasukan_df, pengeluaran_df]:
         if not df.empty and "Tanggal" in df.columns:
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce')
 
-    jurnal_df = jurnal_df[(jurnal_df['Tanggal'] >= pd.to_datetime(mulai)) & (jurnal_df['Tanggal'] <= pd.to_datetime(akhir))]
+    jurnal_df = jurnal_df[(jurnal_df["Tanggal"] >= pd.to_datetime(mulai)) & (jurnal_df["Tanggal"] <= pd.to_datetime(akhir))]
 
-    tabs = st.tabs(["Ringkasan", "Jurnal Umum", "Buku Besar", "Laba Rugi", "Neraca"])
+    st.subheader("Jurnal Umum")
+    st.dataframe(jurnal_df)
 
-    with tabs[0]:
-        total_pemasukan = pemasukan_df[(pemasukan_df['Tanggal'] >= pd.to_datetime(mulai)) & (pemasukan_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum() if not pemasukan_df.empty else 0
-        total_pengeluaran = pengeluaran_df[(pengeluaran_df['Tanggal'] >= pd.to_datetime(mulai)) & (pengeluaran_df['Tanggal'] <= pd.to_datetime(akhir))]['Jumlah'].sum() if not pengeluaran_df.empty else 0
+    # Buku Besar: total debit dan kredit per akun
+    buku_besar = jurnal_df.groupby("Akun").agg(
+        Total_Debit=pd.NamedAgg(column="Debit", aggfunc="sum"),
+        Total_Kredit=pd.NamedAgg(column="Kredit", aggfunc="sum")
+    ).reset_index()
+    buku_besar["Saldo"] = buku_besar["Total_Debit"] - buku_besar["Total_Kredit"]
 
-        st.metric("Total Pemasukan", f"Rp {total_pemasukan:,.0f}")
-        st.metric("Total Pengeluaran", f"Rp {total_pengeluaran:,.0f}")
+    st.subheader("Buku Besar")
+    st.dataframe(buku_besar)
 
-        if total_pemasukan > 0 or total_pengeluaran > 0:
-            df_sum = pd.DataFrame({
-                'Kategori': ['Pemasukan', 'Pengeluaran'],
-                'Jumlah': [total_pemasukan, total_pengeluaran]
-            })
-            fig = px.pie(df_sum, values='Jumlah', names='Kategori')
-            st.plotly_chart(fig)
+    # Laba Rugi sederhana: Pendapatan - Beban
+    pendapatan = jurnal_df[jurnal_df["Akun"].str.lower().str.contains("pendapatan|penjualan")]
+    total_pendapatan = pendapatan["Kredit"].sum() - pendapatan["Debit"].sum()
 
-    with tabs[1]:
-        st.markdown("### Jurnal Umum")
-        st.dataframe(jurnal_df if not jurnal_df.empty else pd.DataFrame())
+    beban = jurnal_df[jurnal_df["Akun"].str.lower().str.contains("beban|pengeluaran|gaji|pajak")]
+    total_beban = beban["Debit"].sum() - beban["Kredit"].sum()
 
-    with tabs[2]:
-        if not jurnal_df.empty:
-            akun_list = jurnal_df['Akun'].unique()
-            for akun in akun_list:
-                st.subheader(f"Akun: {akun}")
-                df_akun = jurnal_df[jurnal_df['Akun'] == akun].copy()
-                df_akun = df_akun.sort_values("Tanggal")
-                df_akun['Saldo'] = df_akun['Debit'] - df_akun['Kredit']
-                df_akun['Saldo'] = df_akun['Saldo'].cumsum()
-                st.dataframe(df_akun)
+    laba_rugi = total_pendapatan - total_beban
 
-    with tabs[3]:
-        pendapatan = jurnal_df[jurnal_df['Akun'].str.contains("Pendapatan")]['Kredit'].sum() if not jurnal_df.empty else 0
-        beban = jurnal_df[~jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang', 'Utang Dagang', 'Pendapatan'])]['Debit'].sum() if not jurnal_df.empty else 0
-        laba_rugi = pendapatan - beban
-        st.metric("Pendapatan", f"Rp {pendapatan:,.0f}")
-        st.metric("Beban", f"Rp {beban:,.0f}")
-        st.metric("Laba / Rugi", f"Rp {laba_rugi:,.0f}")
+    st.subheader("Laporan Laba Rugi Sederhana")
+    st.write(f"Total Pendapatan: Rp {total_pendapatan:,.0f}")
+    st.write(f"Total Beban: Rp {total_beban:,.0f}")
+    st.write(f"Laba / Rugi Bersih: Rp {laba_rugi:,.0f}")
 
-    with tabs[4]:
-        aktiva = jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Debit'].sum() - jurnal_df[jurnal_df['Akun'].isin(['Kas', 'Bank', 'Piutang Dagang'])]['Kredit'].sum() if not jurnal_df.empty else 0
-        kewajiban = jurnal_df[jurnal_df['Akun'].isin(['Utang Dagang'])]['Kredit'].sum() - jurnal_df[jurnal_df['Akun'].isin(['Utang Dagang'])]['Debit'].sum() if not jurnal_df.empty else 0
-        ekuitas = laba_rugi
-        st.metric("Aktiva", f"Rp {aktiva:,.0f}")
-        st.metric("Kewajiban", f"Rp {kewajiban:,.0f}")
-        st.metric("Ekuitas", f"Rp {ekuitas:,.0f}")
+    # Grafik pendapatan dan beban per tanggal
+    pendapatan_per_tgl = pendapatan.groupby("Tanggal")["Kredit"].sum()
+    beban_per_tgl = beban.groupby("Tanggal")["Debit"].sum()
 
-# ---------------- UI Utama ----------------
+    df_grafik = pd.DataFrame({
+        "Pendapatan": pendapatan_per_tgl,
+        "Beban": beban_per_tgl
+    }).fillna(0)
+
+    if not df_grafik.empty:
+        fig = px.line(df_grafik, x=df_grafik.index, y=["Pendapatan", "Beban"], title="Grafik Pendapatan & Beban")
+        st.plotly_chart(fig)
+
+# ----------- Main Application -------------
 
 def main():
-    st.set_page_config(page_title="Aplikasi Keuangan Petani", page_icon="🌾", layout="wide")
+    st.set_page_config(page_title="Aplikasi Keuangan Petani", layout="wide")
 
-    # Logo kecil di header (ganti dengan URL/logo sendiri jika ada)
-    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3105/3105804.png", width=80)
-    st.sidebar.title("Menu")
-    
-    logged_in = login_register()
-    if not logged_in:
+    if not login_register():
         return
-    
-    menu = st.sidebar.radio("Pilih Menu", ["Beranda", "Pemasukan", "Pengeluaran", "Laporan", "Logout"])
 
-    if menu == "Beranda":
-        st.title(f"Selamat datang, {st.session_state['username']}!")
-        st.markdown("Ini adalah aplikasi keuangan untuk petani dengan fitur lengkap.")
-        st.markdown("- Tambah pemasukan dan pengeluaran")
-        st.markdown("- Jurnal umum otomatis")
-        st.markdown("- Buku besar")
-        st.markdown("- Laporan laba rugi dan neraca")
-        st.markdown("Gunakan menu di sebelah kiri untuk navigasi.")
+    st.sidebar.title(f"Selamat Datang, {st.session_state['username']}!")
+    menu = st.sidebar.selectbox("Menu", ["Pemasukan", "Pengeluaran", "Laporan", "Logout"])
 
-    elif menu == "Pemasukan":
+    if menu == "Pemasukan":
         pemasukan()
-
     elif menu == "Pengeluaran":
         pengeluaran()
-
     elif menu == "Laporan":
         laporan()
-
     elif menu == "Logout":
         st.session_state['logged_in'] = False
         st.session_state['username'] = ""
@@ -315,4 +311,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
