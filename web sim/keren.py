@@ -4,41 +4,33 @@ import os
 import hashlib
 import pandas as pd
 import plotly.express as px 
+from PIL import Image
 
 # Atur layout halaman
 st.set_page_config(
     page_title="SiPadi - Aplikasi Petani",
     page_icon="🌾",
-    layout="wide",  # atau "centered"
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Tambahkan CSS kustom
-st.markdown("""
-<style>
-    .main {
-        background-color: #7a8065;
-    }
-    .stButton>button {
-        background-color: #bf9441;
-        color: white;
-    }
-    .stTextInput>div>div>input {
-        background-color: #42472d;
-    }
-    /* Warna latar sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #42472d !important;
-    }
-    
-    /* Warna teks menu sidebar */
-    [data-testid="stSidebar"] .st-b7 {
-        color: blue !important;
-    }
-    
-</style>
-""", unsafe_allow_html=True)
+# Set background hijau tanpa HTML
+def set_background():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-color: #e8f5e9;
+        }
+        .stSidebar {
+            background-color: #2e7d32;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
+set_background()
 
 # ---------------- Helper Functions ----------------
 
@@ -319,21 +311,41 @@ def laporan():
     if not jurnal_df.empty and 'Username' in jurnal_df.columns:
         jurnal_df = jurnal_df[jurnal_df['Username'] == username]
 
-# ---------------- UI Utama ----------------
 
+
+# ---------------- Fungsi Logo ----------------
+def tampilkan_logo():
+    try:
+        logo = Image.open("logo.jpg")
+        st.sidebar.image(logo, width=200)
+        return logo
+    except:
+        st.sidebar.title("SiPadi 🌾")
+        return None
+
+# ---------------- UI Utama ----------------
 def main():
-   
-    # Logo kecil di header (ganti dengan URL/logo sendiri jika ada)
-    st.sidebar.title("Menu")
+    # Tampilkan logo di sidebar
+    logo = tampilkan_logo()
     
     logged_in = login_register()
     if not logged_in:
         return
     
+    # Tampilkan logo kecil di header jika di halaman Beranda
+    if logo and st.sidebar.radio("Pilih Menu", ["Beranda", "Pemasukan", "Pengeluaran", "Laporan", "Logout"]) == "Beranda":
+        col1, col2 = st.columns([1,4])
+        with col1:
+            st.image(logo, width=80)
+        with col2:
+            st.title(f"Selamat datang, {st.session_state['username']}!")
+    else:
+        st.title(f"Selamat datang, {st.session_state['username']}!")
+
+    # [TANPA PERUBAHAN] Menu dan fungsi utama
     menu = st.sidebar.radio("Pilih Menu", ["Beranda", "Pemasukan", "Pengeluaran", "Laporan", "Logout"])
 
     if menu == "Beranda":
-        st.title(f"Selamat datang, {st.session_state['username']}!")
         st.markdown("Ini adalah aplikasi keuangan untuk petani dengan fitur lengkap.")
         st.markdown("- Tambah pemasukan dan pengeluaran")
         st.markdown("- Jurnal umum otomatis")
